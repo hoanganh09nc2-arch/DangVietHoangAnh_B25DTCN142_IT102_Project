@@ -73,6 +73,7 @@ struct Ticket {
     double price; // gia ve
     int paymentStatus; // trang thai thanh toan (0: chua thanh toan, 1: da thanh toan)
     char date[32]; // ngay gio dat ve
+    int action; //trang thai ve (1: Khoa ve, 2: Huy ve)
 };
 struct Ticket tickets[MAXTICKETS] = {
     {
@@ -139,6 +140,7 @@ void checkTicketStatus(struct Ticket tickets[], int ticketCount, struct Trip tri
 void listTrip(); // liet ke chuyen xe
 int findTicketIndexById(const char *ticketId); // kiem tra ve da dat
 void payTicket(); // Thanh toan ve xe
+void statusTicketManagement(); //Quan li trang thai ve
 
 
 int main() { 
@@ -166,6 +168,9 @@ int main() {
                 break;
             case 6:
             	payTicket(); // thanh toan ve xe
+            	break;
+            case 7: 
+            	statusTicketManagement(); // quan li trang thai ve
             	break;
             case 9:
                 printf("Thoat chuong trinh...!\n"); // ket thuc
@@ -206,6 +211,32 @@ int isEmptyString(const char *str) { // kiem tra xau rong
     return (str == NULL) || (strlen(str) == 0);
 }
 
+int isValidDateTime(const char *str) { // Ham check nhap ngay gio duoi dinh dang chuan : YYYY-MM-DD HH:MM:SS
+    if (strlen(str) != 19) {  // Kiem tra tong so ki tu co trong mang
+		return 0;
+	}
+    if (str[4] != '-' || str[7] != '-') { // Kiem tra vi tri dau '-'
+		return 0;
+	}
+    if (str[10] != ' ') {  // Kiem tra vi tri dau cach
+		return 0;
+	}
+    if (str[13] != ':' || str[16] != ':') { // Kiem tra vi tri dau ':'
+		return 0;
+	}
+    for (int i = 0; i < 19; i++) {  // Kiem tra tat ca cac ki tu so
+        if (i == 4 || i == 7 || i == 10 || i == 13 || i == 16) {
+			continue;
+		}
+        if (!isdigit(str[i])) {
+			return 0;
+		}
+    }
+
+    return 1;
+}
+
+
 void showMenu() { // ham hien thi menu
     const char *menuLines[] = {
         "========== QUAN LY VE XE KHACH ==========",
@@ -215,7 +246,7 @@ void showMenu() { // ham hien thi menu
         "| 4. Kiem tra tinh trang ve              |",
         "| 5. Liet ke chuyen xe                   |",
         "| 6. Thanh toan ve                       |",
-        "| 7. Quan ly trang thai ve (Khoa, Huy)   |",
+        "| 7. Quan ly trang thai ve (Lock, Cancel)|",
         "| 8. Bao cao thong ke va doanh thu       |",
         "| 9. Thoat                               |",
         "=========================================="
@@ -275,15 +306,24 @@ void addTrip() { // ham them chuyen xe
 
     inputString("Nhap dia chi diem den: ", newTrip.destination.address, sizeof(newTrip.destination.address));
 
-    // Nhap ngay gio chuyen xe (khong rong)
+    // Nhap ngay gio chuyen xe 
     while (1) {
-        inputString("Nhap ngay gio chuyen xe: ", newTrip.date, sizeof(newTrip.date));
-        if (isEmptyString(newTrip.date)) {
-            printf("Ngay gio chuyen xe khong duoc de trong. Vui long nhap lai.\n");
-        } else {
-            break;
-        }
+    inputString("Nhap ngay gio chuyen xe (YYYY-MM-DD HH:MM:SS): ", 
+                newTrip.date, sizeof(newTrip.date));
+
+    if (isEmptyString(newTrip.date)) {
+        printf("Ngay gio khong duoc de trong!\n");
+        continue;
     }
+
+    if (!isValidDateTime(newTrip.date)) {
+        printf("Sai dinh dang! Vui long nhap dung dinh dang YYYY-MM-DD HH:MM:SS\n");
+        continue;
+    }
+
+    break;
+}
+
 
     // Nhap tong so ghe (phai > 0)
     while (1) {
@@ -294,7 +334,7 @@ void addTrip() { // ham them chuyen xe
         }
         newTrip.totalSeats = atoi(temp);
         if (newTrip.totalSeats <= 0) {
-            printf("Tong so ghe phai lon hon 0. Vui long nhap lai.\n");
+            printf("Tong so ghe phai nhap dung dinh dang 1 so lon hon 0. Vui long nhap lai.\n");
             continue;
         }
         break;
@@ -409,10 +449,15 @@ int isSeatBooked(const char* tripId, int seatNumber, struct Ticket* tickets, int
     return 0;
 }
 
-void bookTicket() { // Chuc nang dat ve
+
+// Chuc nang dat ve
+void bookTicket() { 
     extern struct Ticket tickets[];
     extern int ticketCount;
-
+	int seatNumber = 0;
+	
+	
+	
     if (tripCount == 0) {
         printf("Dat ve that bai: Khong co chuyen xe nao!\n");
         return;
@@ -433,15 +478,15 @@ void bookTicket() { // Chuc nang dat ve
     while (1) {
         inputString("Nhap ma chuyen xe muon dat ve: ", inputTripId, sizeof(inputTripId));
         if (isEmptyString(inputTripId)) {
-            printf("Ma chuyen xe khong duoc de trong!\n");
-            printf("Dat ve that bai!\n");
-            return;
+            printf("Nhap khong dung ma chuyen xe!\n");
+            printf("Vui long nhap lai!\n");
+            continue;
         }
         tripIdx = findTripIndexById(inputTripId);
         if (tripIdx == -1) {
             printf("Khong tim thay chuyen xe.\n");
-            printf("Dat ve that bai!\n");
-            return;
+            printf("Vui long nhap lai!\n");
+            continue;
         }
         if (trips[tripIdx].bookedSeats >= trips[tripIdx].totalSeats) {
             printf("Chuyen xe da het ghe!\n");
@@ -456,13 +501,18 @@ void bookTicket() { // Chuc nang dat ve
     strncpy(newTicket.tripId, trips[tripIdx].tripId, sizeof(newTicket.tripId) - 1);
     newTicket.tripId[sizeof(newTicket.tripId) - 1] = '\0';
 
-    // Vong lap nhap thong tin ve den khi hop le
+    // Vong lap nhap ten khach hang
     while (1) {
         inputString("Nhap ten hanh khach: ", newTicket.passenger.name, sizeof(newTicket.passenger.name));
         if (isEmptyString(newTicket.passenger.name)) {
             printf("Ten hanh khach khong duoc de trong!\n");
             continue;
         }
+        break;
+    }
+    
+    // Vong lap nhap Sdt
+	while (1) {    
         inputString("Nhap so dien thoai hanh khach: ", newTicket.passenger.phone, sizeof(newTicket.passenger.phone));
         if (isEmptyString(newTicket.passenger.phone)) {
             printf("So dien thoai khong duoc de trong!\n");
@@ -476,23 +526,22 @@ void bookTicket() { // Chuc nang dat ve
 	} 
 	while(1){
         char tempSeat[16];
-        int seatNumber;
-        printf("Nhap so ghe (1-%d): ", trips[tripIdx].totalSeats);
-        inputString("", tempSeat, sizeof(tempSeat));
+        inputString("Nhap so ghe: ", tempSeat, sizeof(tempSeat));
         seatNumber = atoi(tempSeat);
 
         if (seatNumber < 1 || seatNumber > trips[tripIdx].totalSeats) {
-            printf("So ghe phai > 0 va <= tong so ghe!\n");
+            printf("So ghe phai nhap duoi dinh dang so > 0 va <= tong so ghe!\n");
             continue;
+           
         }
         if (isSeatBooked(trips[tripIdx].tripId, seatNumber, tickets, ticketCount)) {
             printf("So ghe nay da duoc dat trong chuyen xe nay!\n");
             continue;
+            
         }
         break;
 	}
 	while(1){
-		int seatNumber; 
         newTicket.seatNumber = seatNumber;
 
         newTicket.paymentStatus = 0;
@@ -620,7 +669,7 @@ void payTicket() {
     printf("Nhap ma ve can thanh toan: ");
     scanf("%s", ticketId);
 
-    int idx = findTicketIndexById(ticketId);
+    int idx = findTicketIndexById(ticketId);  // Tim vi tri ve bang chi so index
 
     if (idx == -1) {
         printf("Khong tim thay ve.\n");
@@ -628,7 +677,7 @@ void payTicket() {
     }
 
     // Lay ve ra de xu ly
-    struct Ticket tk = tickets[idx];
+    struct Ticket tk = tickets[idx]; // Tao 1 bien de sao chep thong tin ve tu mang tickets tai vi tri idx.
 
     // Kiem tra trang thai ve
     if (tk.paymentStatus == 1) {
@@ -654,5 +703,53 @@ void payTicket() {
         printf("Thanh toan thanh cong cho ve %s.\n", tk.ticketId);
     } else {
         printf("Thanh toan da bi huy.\n");
+    }
+}
+
+// Ham quan li trang thai ve
+void statusTicketManagement() {
+    char ticketId[20];
+    printf("Nhap ma ve can huy: ");
+    scanf("%s", ticketId);
+
+    int idx = findTicketIndexById(ticketId);
+
+    if (idx == -1) {
+        printf("Khong tim thay ve.\n");
+        return;
+    }
+
+    struct Ticket tk = tickets[idx];
+
+    // Kiem tra trang thai ve
+    if (tk.paymentStatus == 1) {
+        printf("Ve nay da duoc thanh toan, khong the huy.\n");
+        return;
+    }
+
+    // Hien thi thong tin ve truoc khi huy
+    printf("\n=== THONG TIN VE ===\n");
+    printf("Ma ve: %s\n", tk.ticketId);
+    printf("Chuyen: %s\n", tk.tripId);
+    printf("Hanh khach: %s | SDT: %s\n", tk.passenger.name, tk.passenger.phone);
+    printf("So ghe: %d | Gia: %.2f\n", tk.seatNumber, tk.price);
+    printf("Ngay dat: %s\n", tk.date);
+
+    // Xac nhan huy ve
+    char confirm;
+    printf("\nBan co muon huy ve nay? (y/n): ");
+    scanf(" %c", &confirm);
+
+    if (confirm == 'y' || confirm == 'Y') {
+        // Cap nhat trang thai huy
+        tickets[idx].action = 1; 
+        // Giam so ghe da dat cua chuyen xe
+        int tripIdx = findTripIndexById(tk.tripId);
+        if (tripIdx != -1 && trips[tripIdx].bookedSeats > 0) {
+            trips[tripIdx].bookedSeats--;
+        }
+        printf("Huy ve thanh cong cho ma ve %s.\n", tk.ticketId);
+    } else {
+        printf("Huy ve da bi huy thao tac.\n");
     }
 }
