@@ -709,8 +709,18 @@ void payTicket() {
 // Ham quan li trang thai ve
 void statusTicketManagement() {
     char ticketId[20];
-    printf("Nhap ma ve can huy: ");
-    scanf("%s", ticketId);
+
+    while (1) {
+        printf("Nhap ma ve can huy: ");
+        fgets(ticketId, sizeof(ticketId), stdin);
+        ticketId[strcspn(ticketId, "\n")] = '\0'; 
+
+        if (strlen(ticketId) == 0) {
+            printf("Ma ve khong duoc de trong. Nhap lai!\n");
+            continue;
+        }
+        break;
+    }
 
     int idx = findTicketIndexById(ticketId);
 
@@ -721,13 +731,11 @@ void statusTicketManagement() {
 
     struct Ticket tk = tickets[idx];
 
-    // Kiem tra trang thai ve
     if (tk.paymentStatus == 1) {
         printf("Ve nay da duoc thanh toan, khong the huy.\n");
         return;
     }
 
-    // Hien thi thong tin ve truoc khi huy
     printf("\n=== THONG TIN VE ===\n");
     printf("Ma ve: %s\n", tk.ticketId);
     printf("Chuyen: %s\n", tk.tripId);
@@ -735,21 +743,31 @@ void statusTicketManagement() {
     printf("So ghe: %d | Gia: %.2f\n", tk.seatNumber, tk.price);
     printf("Ngay dat: %s\n", tk.date);
 
-    // Xac nhan huy ve
     char confirm;
-    printf("\nBan co muon huy ve nay? (y/n): ");
-    scanf(" %c", &confirm);
+
+    while (1) {
+        printf("\nBan co muon huy ve nay? (y/n): ");
+        scanf(" %c", &confirm);
+
+        if (confirm == 'y' || confirm == 'Y' ||
+            confirm == 'n' || confirm == 'N') {
+            break;
+        }
+
+        printf("Chi duoc nhap y/n. Vui long thu lai!\n");
+    }
 
     if (confirm == 'y' || confirm == 'Y') {
-        // Cap nhat trang thai huy
         tickets[idx].action = 1; 
-        // Giam so ghe da dat cua chuyen xe
+
         int tripIdx = findTripIndexById(tk.tripId);
         if (tripIdx != -1 && trips[tripIdx].bookedSeats > 0) {
             trips[tripIdx].bookedSeats--;
         }
+
         printf("Huy ve thanh cong cho ma ve %s.\n", tk.ticketId);
     } else {
         printf("Huy ve da bi huy thao tac.\n");
     }
 }
+
